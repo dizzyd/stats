@@ -57,7 +57,7 @@ update(Value, Hist) ->
         {value, Counter} ->
             ok;
         none ->
-            Counter = 1
+            Counter = 0
     end,
     Hist#hist { n = Hist#hist.n + 1,
                 bins = gb_trees:enter(Bin, Counter + 1, Hist#hist.bins) }.
@@ -72,17 +72,18 @@ quantile(_Quantile, #hist { n = 0 }) ->
 quantile(Quantile, Hist)
   when Quantile > 0; Quantile < 1 ->
     %% Sort out how many samples we need to satisfy the requested quantile
-    MaxSamples = trunc(Quantile * Hist#hist.n),
+    MaxSamples = Quantile * Hist#hist.n,
 
     %% Now iterate over the bins, until we have gathered enough samples
     %% to satisfy the request. The resulting bin is an estimate.
-    case quantile_itr(gb_trees:iterator(Hist#hist.bins), 0, MaxSamples) of
+    Itr = gb_trees:iterator(Hist#hist.bins),
+    case quantile_itr(gb_trees:next(Itr), 0, MaxSamples) of
         max ->
             Hist#hist.max;
         EstBin ->
             %% We have an estimated bin -- determine the lower bound of said
             %% bin
-            (EstBin / Hist#hist.bin_scale) - Hist#hist.min
+            Hist#hist.min + (EstBin / Hist#hist.bin_scale)
     end.
 
 
@@ -91,11 +92,11 @@ quantile(Quantile, Hist)
 %% ===================================================================
 
 which_bin(Value, Hist) ->
-    Bin = trunc(Value * Hist#hist.bin_scale),
+    Bin = trunc((Value - Hist#hist.min) * Hist#hist.bin_scale),
     if
         Bin < 0 ->
             0;
-        Bin > Hist#hist.max ->
+        Bin >= Hist#hist.capacity ->
             Hist#hist.capacity - 1;
         true ->
             Bin
@@ -110,9 +111,6 @@ quantile_itr({Bin, Counter, Itr2}, Samples, MaxSamples) ->
         Samples2 < MaxSamples ->
             %% Not done yet, move to next bin
             quantile_itr(gb_trees:next(Itr2), Samples2, MaxSamples);
-        Samples2 == MaxSamples ->
-            %% This bin (in its entirety) satisfies our criteria
-            Bin + 1;
         true ->
             %% We only need some of the samples in this bin; we make
             %% the assumption that values within the bin are uniformly
@@ -122,3 +120,4 @@ quantile_itr({Bin, Counter, Itr2}, Samples, MaxSamples) ->
             
             
             
+ 
