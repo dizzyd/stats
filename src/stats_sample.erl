@@ -27,6 +27,10 @@
          min/1, mean/1, max/1,
          variance/1, sdev/1]).
 
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
+
 -record(state, { n = 0,
                  min,
                  max,
@@ -79,3 +83,15 @@ sdev(State) ->
             math:sqrt(Value)
     end.
             
+
+
+%% ===================================================================
+%% Unit Tests
+%% ===================================================================
+
+-ifdef(EUNIT).
+
+simple_test() ->
+    ok.
+
+-endif.
