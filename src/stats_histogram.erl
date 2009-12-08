@@ -22,13 +22,24 @@
 -module(stats_histogram).
 
 -export([new/3,
-         update/2,
-         quantile/2]).
+         update/2, update_all/2,
+         quantile/2,
+         counts/1]).
+
+-include("stats.hrl").
+
+-ifdef(TEST).
+-ifdef(EQC).
+-include_lib("eqc/include/eqc.hrl").
+-endif.
+-include_lib("eunit/include/eunit.hrl").
+-endif.
 
 -record(hist, { n = 0,
                 min,
                 max,
                 bin_scale,
+                bin_step,
                 bins,
                 capacity }).
 
@@ -40,6 +51,7 @@ new(MinVal, MaxVal, NumBins) ->
     #hist { min = MinVal,
             max = MaxVal,
             bin_scale = NumBins / (MaxVal - MinVal),
+            bin_step = (MaxVal - MinVal) / NumBins,
             bins = gb_trees:empty(),
             capacity = NumBins }.
 
@@ -63,6 +75,12 @@ update(Value, Hist) ->
                 bins = gb_trees:enter(Bin, Counter + 1, Hist#hist.bins) }.
 
 
+update_all(Values, Hist) ->
+    lists:foldl(fun(Value, H) -> update(Value, H) end,
+                Hist, Values).
+    
+
+
 %%
 %% Estimate the quantile from the histogram. Quantile should be a value
 %% between 0 and 1. Returns 'NaN' if the histogram is currently empty.
@@ -71,7 +89,7 @@ quantile(_Quantile, #hist { n = 0 }) ->
     'NaN';
 quantile(Quantile, Hist)
   when Quantile > 0; Quantile < 1 ->
-    %% Sort out how many samples we need to satisfy the requested quantile
+    %% Sort out how many complete samples we need to satisfy the requested quantile
     MaxSamples = Quantile * Hist#hist.n,
 
     %% Now iterate over the bins, until we have gathered enough samples
@@ -86,6 +104,12 @@ quantile(Quantile, Hist)
             Hist#hist.min + (EstBin / Hist#hist.bin_scale)
     end.
 
+%%
+%% Get the counts for each bin in the histogram
+%%
+counts(Hist) ->
+    [bin_count(I, Hist) || I <- lists:seq(0, Hist#hist.capacity-1)].
+
 
 %% ===================================================================
 %% Internal functions
@@ -93,11 +117,16 @@ quantile(Quantile, Hist)
 
 which_bin(Value, Hist) ->
     Bin = trunc((Value - Hist#hist.min) * Hist#hist.bin_scale),
+    Lower = Hist#hist.min + (Bin * Hist#hist.bin_step),
+    Upper = Hist#hist.min + ((Bin + 1) * Hist#hist.bin_step),
+
     if
-        Bin < 0 ->
-            0;
-        Bin >= Hist#hist.capacity ->
-            Hist#hist.capacity - 1;
+        Value > Upper ->
+            erlang:min(Bin + 1, Hist#hist.capacity - 1);
+
+        Value =< Lower ->
+            erlang:max(Bin - 1, 0);
+                    
         true ->
             Bin
     end.
@@ -117,7 +146,71 @@ quantile_itr({Bin, Counter, Itr2}, Samples, MaxSamples) ->
             %% distributed.
             Bin + ((MaxSamples - Samples) / Counter)
     end.
+
+
+bin_count(Bin, Hist) ->
+    case gb_trees:lookup(Bin, Hist#hist.bins) of
+        {value, Count} ->
+            Count;
+         none ->
+            0
+    end.
             
-            
-            
- 
+%% ===================================================================
+%% Unit Tests
+%% ===================================================================
+
+-ifdef(EUNIT).
+
+simple_test() ->
+    %% Pre-calculated tests
+    [7,0] = counts(update_all([10,10,10,10,10,10,14], new(10,18,2))).
+
+-ifdef(EQC).
+
+qc_count_check(Min, Max, Bins, Xs) ->
+    LCounts = counts(update_all(Xs, new(Min, Max, Bins))),
+    RCounts = stats_utils:r_run(Xs, ?FMT("hist(x, seq(~w,~w,length.out=~w), plot=FALSE)$counts",
+                                         [Min, Max, Bins+1])),
+    LCounts == RCounts.
+
+
+
+qc_count_test() ->
+    P = ?LET({Min, Bins, Xlen}, {choose(0, 99), choose(2, 20), choose(2, 100)},
+             ?LET(Max, choose(Min+1, 100),
+                  ?FORALL(Xs, vector(Xlen, choose(Min, Max)),
+                          qc_count_check(Min, Max, Bins, Xs)))),
+    true = eqc:quickcheck(P).
+
+qc_quantile_check(Q, Min, Max, Bins, Xs) ->
+    Lq = quantile(Q * 0.01, update_all(Xs, new(Min, Max, Bins))),
+    [Rq] = stats_utils:r_run(Xs, ?FMT("quantile(x, ~4.2f)", [Q * 0.01])),
+    case abs(Lq - Rq) < 1 of
+        true ->
+            true;
+        false ->
+            ?debugMsg("----\n"),
+            ?debugFmt("Q: ~p Min: ~p Max: ~p Bins: ~p\n", [Q, Min, Max, Bins]),
+            ?debugFmt("Lq: ~p != Rq: ~p\n", [Lq, Rq]),
+            ?debugFmt("Xs: ~p\n", [Xs]),
+            false
+    end.
+
+qc_quantile_test() ->
+    %% Loosey-goosey checking of the quantile estimation against R's more precise method.
+    %%
+    %% To ensure a minimal level of accuracy, we ensure that we have between 50-200 bins
+    %% and between 100-500 data points.
+    %%
+    %% TODO: Need to nail down the exact error bounds
+    P = ?LET({Min, Bins, Xlen, Q}, {choose(1, 99), choose(50, 200), choose(100, 500),
+                                    choose(0,100)},
+             ?LET(Max, choose(Min+1, 100),
+                  ?FORALL(Xs, vector(Xlen, choose(Min, Max)),
+                          qc_quantile_check(Q, Min, Max, Bins, Xs)))),
+    true = eqc:quickcheck(P).
+
+
+-endif.            
+-endif. 
