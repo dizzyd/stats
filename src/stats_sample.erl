@@ -92,6 +92,7 @@ sdev(State) ->
 -ifdef(EUNIT).
 
 simple_test() ->
-    ok.
+    {ok, [1,2,3,3,4,5]} = stats_utils:r_run([1,2,3,4,5], "summary(x)"),
+    {ok, [0,25,50,50,75,100]} = stats_utils:r_run(lists:seq(0,100), "summary(x)").
 
 -endif.
