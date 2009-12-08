@@ -22,18 +22,22 @@
 -module(stats_sample).
 
 -export([new/0,
-         update/2,
+         update/2, update_all/2,
          count/1,
          min/1, mean/1, max/1,
-         variance/1, sdev/1]).
+         variance/1, sdev/1,
+         summary/1]).
 
 -ifdef(TEST).
+-ifdef(EQC).
+-include_lib("eqc/include/eqc.hrl").
+-endif.
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
 -record(state, { n = 0,
-                 min,
-                 max,
+                 min = 'NaN',
+                 max = 'NaN',
                  sum  = 0,
                  sum2 = 0 }).
 
@@ -44,15 +48,19 @@
 
 new() ->
     #state{}.
-
+    
 update(Value, State) ->
     State#state {
       n   = State#state.n + 1,
-      min = erlang:min(Value, State#state.min),
-      max = erlang:max(Value, State#state.max),
+      min = min(Value, State#state.min),
+      max = max(Value, State#state.max),
       sum = State#state.sum + Value,
-      sum2= State#state.sum + (Value * Value)}.
+      sum2= State#state.sum2 + (Value * Value)}.
 
+
+update_all(Values, State) ->
+    lists:foldl(fun(Value, S) -> update(Value, S) end,
+                        State, Values).
 
 count(State) ->
     State#state.n.
@@ -68,7 +76,7 @@ mean(State) ->
 max(State) ->
     State#state.max.
 
-variance(#state { n = N}) when N < 2 ->
+variance(#state { n = N }) when N < 2 ->
     'NaN';
 variance(State) ->
     SumSq = State#state.sum * State#state.sum,
@@ -82,8 +90,23 @@ sdev(State) ->
         Value ->
             math:sqrt(Value)
     end.
+
+summary(State) ->
+    {min(State), mean(State), max(State), variance(State), sdev(State)}.
             
 
+%% ===================================================================
+%% Internal functions
+%% ===================================================================
+
+min(V1, 'NaN') -> V1;
+min('NaN', V1) -> V1;
+min(V1, V2)    -> erlang:min(V1, V2).
+
+max(V1, 'NaN') -> V1;
+max('NaN', V1) -> V1;
+max(V1, V2)    -> erlang:max(V1, V2).
+    
 
 %% ===================================================================
 %% Unit Tests
@@ -92,7 +115,34 @@ sdev(State) ->
 -ifdef(EUNIT).
 
 simple_test() ->
-    {ok, [1,2,3,3,4,5]} = stats_utils:r_run([1,2,3,4,5], "summary(x)"),
-    {ok, [0,25,50,50,75,100]} = stats_utils:r_run(lists:seq(0,100), "summary(x)").
+    %% A few hand-checked values 
+    {1,3.0,5,2.5,1.5811388300841898} = summary(update_all([1,2,3,4,5], new())),
+    {1,5.5,10,15.0,3.872983346207417} = summary(update_all(lists:seq(1,10,3), new())).
+
+empty_test() ->
+    {'NaN','NaN','NaN','NaN','NaN'} = summary(new()).
+
+
+-ifdef(EQC).
+
+lists_equal([], []) ->
+    true;
+lists_equal([V1 | R1], [V2 | R2]) ->
+    case abs(V1-V2) < 0.01 of
+        true ->
+            lists_equal(R1, R2);
+        false ->
+            false
+    end.
+
+qc_test() ->
+    Prop = ?LET(Xlen, choose(2, 100),
+                ?FORALL(Xs, vector(Xlen, int()),
+                        lists_equal(stats_utils:r_run(Xs,"c(min(x), mean(x), max(x), var(x), sd(x))"),
+                                    tuple_to_list(summary(update_all(Xs, new())))))),
+    true = eqc:quickcheck(Prop).
+
+-endif.
+
 
 -endif.

@@ -41,7 +41,7 @@ r_run(Input, Command) ->
             port_command(Port, ?FMT("x <- c(~s)\n", [string:join(InputStr, ",")])),
             port_command(Port, ?FMT("write(~s, ncolumns=1, file=stdout())\n", [Command])),
             port_command(Port, "write('', file=stdout())\n"),
-            {ok, r_simple_read_loop(Port, [])};
+            r_simple_read_loop(Port, []);
         {error, Reason} ->
             {error, Reason}
     end.
