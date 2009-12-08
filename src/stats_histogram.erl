@@ -28,13 +28,6 @@
 
 -include("stats.hrl").
 
--ifdef(TEST).
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--endif.
--include_lib("eunit/include/eunit.hrl").
--endif.
-
 -record(hist, { n = 0,
                 min,
                 max,

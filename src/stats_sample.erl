@@ -28,12 +28,7 @@
          variance/1, sdev/1,
          summary/1]).
 
--ifdef(TEST).
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--endif.
--include_lib("eunit/include/eunit.hrl").
--endif.
+-include("stats.hrl").
 
 -record(state, { n = 0,
                  min = 'NaN',
