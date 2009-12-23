@@ -24,7 +24,8 @@
 -export([new/3,
          update/2, update_all/2,
          quantile/2,
-         counts/1]).
+         counts/1,
+         summary_stats/1]).
 
 -include("stats.hrl").
 
@@ -34,7 +35,8 @@
                 bin_scale,
                 bin_step,
                 bins,
-                capacity }).
+                capacity,
+                stats }).
 
 %% ===================================================================
 %% Public API
@@ -46,7 +48,9 @@ new(MinVal, MaxVal, NumBins) ->
             bin_scale = NumBins / (MaxVal - MinVal),
             bin_step = (MaxVal - MinVal) / NumBins,
             bins = gb_trees:empty(),
-            capacity = NumBins }.
+            capacity = NumBins,
+            stats = stats_sample:new() }.
+
 
 %%
 %% Update the histogram with a new observation.
@@ -65,7 +69,8 @@ update(Value, Hist) ->
             Counter = 0
     end,
     Hist#hist { n = Hist#hist.n + 1,
-                bins = gb_trees:enter(Bin, Counter + 1, Hist#hist.bins) }.
+                bins = gb_trees:enter(Bin, Counter + 1, Hist#hist.bins),
+                stats = stats_sample:update(Value, Hist#hist.stats)}.
 
 
 update_all(Values, Hist) ->
@@ -102,6 +107,13 @@ quantile(Quantile, Hist)
 %%
 counts(Hist) ->
     [bin_count(I, Hist) || I <- lists:seq(0, Hist#hist.capacity-1)].
+
+
+%%
+%% Return basic summary stats for this histogram
+%%
+summary_stats(Hist) ->
+    stats_sample:summary(Hist#hist.stats).
 
 
 %% ===================================================================
