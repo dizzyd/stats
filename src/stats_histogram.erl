@@ -25,6 +25,7 @@
          update/2, update_all/2,
          quantile/2,
          counts/1,
+         observations/1,
          summary_stats/1]).
 
 -include("stats.hrl").
@@ -108,6 +109,12 @@ quantile(Quantile, Hist)
 counts(Hist) ->
     [bin_count(I, Hist) || I <- lists:seq(0, Hist#hist.capacity-1)].
 
+
+%%
+%% Number of observations that are present in this histogram
+%%
+observations(Hist) ->
+    Hist#hist.n.
 
 %%
 %% Return basic summary stats for this histogram
