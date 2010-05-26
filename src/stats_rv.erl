@@ -44,10 +44,11 @@ exponential(Lambda) ->
     -math:log(random:uniform()) / Lambda.
 
 %%
-%% Generates a Poisson-distributed random variable, using Knuth's method
+%% Generates a Poisson-distributed random variable by summing exponential rvs
+%% (May be slow!!).
 %%
 poisson(Lambda) ->
-    poisson_rv_loop(math:exp(-Lambda), 1, 0).
+    poisson_rv_loop(Lambda, 0.0, -1).
 
 %%
 %% Generates a Normal-distributed random variable, using Box-Muller method
@@ -57,17 +58,13 @@ normal(Mean, Sigma) ->
     Rv2 = random:uniform(),
     Rho = math:sqrt(-2 * math:log(1-Rv2)),
     Rho * math:cos(2 * math:pi() * Rv1) * Sigma + Mean.
-    
 
 
 %% ====================================================================
 %% Internal functions
 %% ====================================================================
 
-poisson_rv_loop(A, B, Counter) ->
-    case B < A of
-        true ->
-            Counter;
-        false ->
-            poisson_rv_loop(A, B * random:uniform(), Counter+1)
-    end.
+poisson_rv_loop(Lambda, Sum, N) when Sum < Lambda ->
+    poisson_rv_loop(Lambda, Sum - math:log(random:uniform()), N+1);
+poisson_rv_loop(Lambda, Sum, N) ->
+    N.
