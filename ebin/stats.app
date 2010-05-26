@@ -1,6 +1,6 @@
 {application, stats,
  [{description, "Erlang Statistics Library"},
-  {vsn, "1"},
+  {vsn, "2"},
   {modules, [ stats_sample,
               stats_histogram,
               stats_rv,
