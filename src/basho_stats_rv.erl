@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(stats_rv).
+-module(basho_stats_rv).
 
 -export([uniform/0,
          exponential/1,

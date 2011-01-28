@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(stats_histogram).
+-module(basho_stats_histogram).
 
 -export([new/3,
          update/2, update_all/2,
@@ -50,7 +50,7 @@ new(MinVal, MaxVal, NumBins) ->
             bin_step = (MaxVal - MinVal) / NumBins,
             bins = gb_trees:empty(),
             capacity = NumBins,
-            stats = stats_sample:new() }.
+            stats = basho_stats_sample:new() }.
 
 
 %%
@@ -71,7 +71,7 @@ update(Value, Hist) ->
     end,
     Hist#hist { n = Hist#hist.n + 1,
                 bins = gb_trees:enter(Bin, Counter + 1, Hist#hist.bins),
-                stats = stats_sample:update(Value, Hist#hist.stats)}.
+                stats = basho_stats_sample:update(Value, Hist#hist.stats)}.
 
 
 update_all(Values, Hist) ->
@@ -120,7 +120,7 @@ observations(Hist) ->
 %% Return basic summary stats for this histogram
 %%
 summary_stats(Hist) ->
-    stats_sample:summary(Hist#hist.stats).
+    basho_stats_sample:summary(Hist#hist.stats).
 
 
 %% ===================================================================
@@ -182,7 +182,7 @@ simple_test() ->
 
 qc_count_check(Min, Max, Bins, Xs) ->
     LCounts = counts(update_all(Xs, new(Min, Max, Bins))),
-    RCounts = stats_utils:r_run(Xs, ?FMT("hist(x, seq(~w,~w,length.out=~w), plot=FALSE)$counts",
+    RCounts = basho_stats_utils:r_run(Xs, ?FMT("hist(x, seq(~w,~w,length.out=~w), plot=FALSE)$counts",
                                          [Min, Max, Bins+1])),
     LCounts == RCounts.
 
@@ -197,7 +197,7 @@ qc_count_test() ->
 
 qc_quantile_check(Q, Min, Max, Bins, Xs) ->
     Lq = quantile(Q * 0.01, update_all(Xs, new(Min, Max, Bins))),
-    [Rq] = stats_utils:r_run(Xs, ?FMT("quantile(x, ~4.2f)", [Q * 0.01])),
+    [Rq] = basho_stats_utils:r_run(Xs, ?FMT("quantile(x, ~4.2f)", [Q * 0.01])),
     case abs(Lq - Rq) < 1 of
         true ->
             true;

@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(stats_utils).
+-module(basho_stats_utils).
 
 -include("stats.hrl").
 

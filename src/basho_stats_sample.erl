@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(stats_sample).
+-module(basho_stats_sample).
 
 -export([new/0,
          update/2, update_all/2,
@@ -133,7 +133,7 @@ lists_equal([V1 | R1], [V2 | R2]) ->
 qc_test() ->
     Prop = ?LET(Xlen, choose(2, 100),
                 ?FORALL(Xs, vector(Xlen, int()),
-                        lists_equal(stats_utils:r_run(Xs,"c(min(x), mean(x), max(x), var(x), sd(x))"),
+                        lists_equal(basho_stats_utils:r_run(Xs,"c(min(x), mean(x), max(x), var(x), sd(x))"),
                                     tuple_to_list(summary(update_all(Xs, new())))))),
     true = eqc:quickcheck(Prop).
 
