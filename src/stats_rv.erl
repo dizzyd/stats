@@ -66,5 +66,5 @@ normal(Mean, Sigma) ->
 
 poisson_rv_loop(Lambda, Sum, N) when Sum < Lambda ->
     poisson_rv_loop(Lambda, Sum - math:log(random:uniform()), N+1);
-poisson_rv_loop(Lambda, Sum, N) ->
+poisson_rv_loop(_Lambda, _Sum, N) ->
     N.
