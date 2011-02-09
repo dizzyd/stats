@@ -27,6 +27,9 @@
          counts/1,
          observations/1,
          summary_stats/1]).
+-ifdef(TEST).
+-export([qc_quantile_test_i/1]).
+-endif.
 
 -include("stats.hrl").
 
@@ -198,7 +201,7 @@ qc_count_test() ->
 qc_quantile_check(Q, Min, Max, Bins, Xs) ->
     Lq = quantile(Q * 0.01, update_all(Xs, new(Min, Max, Bins))),
     [Rq] = basho_stats_utils:r_run(Xs, ?FMT("quantile(x, ~4.2f)", [Q * 0.01])),
-    case abs(Lq - Rq) < 1 of
+    case abs(Lq - Rq) < 5.0 of
         true ->
             true;
         false ->
@@ -210,6 +213,9 @@ qc_quantile_check(Q, Min, Max, Bins, Xs) ->
     end.
 
 qc_quantile_test() ->
+    qc_quantile_test_i(100).
+
+qc_quantile_test_i(NumTests) ->
     %% Loosey-goosey checking of the quantile estimation against R's more precise method.
     %%
     %% To ensure a minimal level of accuracy, we ensure that we have between 50-200 bins
@@ -221,7 +227,7 @@ qc_quantile_test() ->
              ?LET(Max, choose(Min+1, 100),
                   ?FORALL(Xs, vector(Xlen, choose(Min, Max)),
                           qc_quantile_check(Q, Min, Max, Bins, Xs)))),
-    true = eqc:quickcheck(P).
+    true = eqc:quickcheck(eqc:numtests(NumTests, P)).
 
 
 -endif.            
