@@ -19,7 +19,7 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--module(stats_sample).
+-module(basho_stats_sample).
 
 -export([new/0,
          update/2, update_all/2,
@@ -47,8 +47,8 @@ new() ->
 update(Value, State) ->
     State#state {
       n   = State#state.n + 1,
-      min = min(Value, State#state.min),
-      max = max(Value, State#state.max),
+      min = nan_min(Value, State#state.min),
+      max = nan_max(Value, State#state.max),
       sum = State#state.sum + Value,
       sum2= State#state.sum2 + (Value * Value)}.
 
@@ -94,13 +94,13 @@ summary(State) ->
 %% Internal functions
 %% ===================================================================
 
-min(V1, 'NaN') -> V1;
-min('NaN', V1) -> V1;
-min(V1, V2)    -> erlang:min(V1, V2).
+nan_min(V1, 'NaN') -> V1;
+nan_min('NaN', V1) -> V1;
+nan_min(V1, V2)    -> erlang:min(V1, V2).
 
-max(V1, 'NaN') -> V1;
-max('NaN', V1) -> V1;
-max(V1, V2)    -> erlang:max(V1, V2).
+nan_max(V1, 'NaN') -> V1;
+nan_max('NaN', V1) -> V1;
+nan_max(V1, V2)    -> erlang:max(V1, V2).
     
 
 %% ===================================================================
@@ -133,7 +133,7 @@ lists_equal([V1 | R1], [V2 | R2]) ->
 qc_test() ->
     Prop = ?LET(Xlen, choose(2, 100),
                 ?FORALL(Xs, vector(Xlen, int()),
-                        lists_equal(stats_utils:r_run(Xs,"c(min(x), mean(x), max(x), var(x), sd(x))"),
+                        lists_equal(basho_stats_utils:r_run(Xs,"c(min(x), mean(x), max(x), var(x), sd(x))"),
                                     tuple_to_list(summary(update_all(Xs, new())))))),
     true = eqc:quickcheck(Prop).
 
